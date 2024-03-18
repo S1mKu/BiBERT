@@ -23,7 +23,8 @@ import unicodedata
 from io import open
 
 logger = logging.getLogger(__name__)
-VOCAB_NAME='vocab.txt'
+VOCAB_NAME = "vocab.txt"
+
 
 def load_vocab(vocab_file):
     """Loads a vocabulary file into a dictionary."""
@@ -52,8 +53,15 @@ def whitespace_tokenize(text):
 class BertTokenizer(object):
     """Runs end-to-end tokenization: punctuation splitting + wordpiece"""
 
-    def __init__(self, vocab_file, do_lower_case=True, max_len=None, do_basic_tokenize=True, basic_only=False,
-                 never_split=("[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]")):
+    def __init__(
+        self,
+        vocab_file,
+        do_lower_case=True,
+        max_len=None,
+        do_basic_tokenize=True,
+        basic_only=False,
+        never_split=("[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]"),
+    ):
         """Constructs a BertTokenizer.
 
         Args:
@@ -71,14 +79,19 @@ class BertTokenizer(object):
         if not os.path.isfile(vocab_file):
             raise ValueError(
                 "Can't find a vocabulary file at path '{}'. To load the vocabulary from a Google pretrained "
-                "model use `tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)`".format(vocab_file))
+                "model use `tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)`".format(
+                    vocab_file
+                )
+            )
         self.vocab = load_vocab(vocab_file)
         self.ids_to_tokens = collections.OrderedDict(
-            [(ids, tok) for tok, ids in self.vocab.items()])
+            [(ids, tok) for tok, ids in self.vocab.items()]
+        )
         self.do_basic_tokenize = do_basic_tokenize
         if do_basic_tokenize:
-          self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case,
-                                                never_split=never_split)
+            self.basic_tokenizer = BasicTokenizer(
+                do_lower_case=do_lower_case, never_split=never_split
+            )
         self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab)
         self.max_len = max_len if max_len is not None else int(1e12)
         self.basic_only = basic_only
@@ -100,12 +113,14 @@ class BertTokenizer(object):
         """Converts a sequence of tokens into ids using the vocab."""
         ids = []
         for token in tokens:
-            ids.append(self.vocab.get(token, self.vocab['[UNK]']))
+            ids.append(self.vocab.get(token, self.vocab["[UNK]"]))
         if len(ids) > self.max_len:
             logger.warning(
                 "Token indices sequence length is longer than the specified maximum "
                 " sequence length for this BERT model ({} > {}). Running this"
-                " sequence through BERT will result in indexing errors".format(len(ids), self.max_len)
+                " sequence through BERT will result in indexing errors".format(
+                    len(ids), self.max_len
+                )
             )
         return ids
 
@@ -124,10 +139,14 @@ class BertTokenizer(object):
         with open(vocab_file, "w", encoding="utf-8") as writer:
             for token, token_index in sorted(self.vocab.items(), key=lambda kv: kv[1]):
                 if index != token_index:
-                    logger.warning("Saving vocabulary to {}: vocabulary indices are not consecutive."
-                                   " Please check that the vocabulary is not corrupted!".format(vocab_file))
+                    logger.warning(
+                        "Saving vocabulary to {}: vocabulary indices are not consecutive."
+                        " Please check that the vocabulary is not corrupted!".format(
+                            vocab_file
+                        )
+                    )
                     index = token_index
-                writer.write(token + u'\n')
+                writer.write(token + "\n")
                 index += 1
         return vocab_file
 
@@ -137,10 +156,10 @@ class BertTokenizer(object):
         Instantiate a PreTrainedBertModel from a pre-trained model file.
         Download and cache the pre-trained model file if needed.
         """
-        resolved_vocab_file = os.path.join(pretrained_model_name_or_path, 'vocab.txt')
+        resolved_vocab_file = os.path.join(pretrained_model_name_or_path, "vocab.txt")
 
         max_len = 512
-        kwargs['max_len'] = min(kwargs.get('max_len', int(1e12)), max_len)
+        kwargs["max_len"] = min(kwargs.get("max_len", int(1e12)), max_len)
         # Instantiate tokenizer.
         tokenizer = cls(resolved_vocab_file, *inputs, **kwargs)
 
@@ -150,9 +169,11 @@ class BertTokenizer(object):
 class BasicTokenizer(object):
     """Runs basic tokenization (punctuation splitting, lower casing, etc.)."""
 
-    def __init__(self,
-                 do_lower_case=True,
-                 never_split=("[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]")):
+    def __init__(
+        self,
+        do_lower_case=True,
+        never_split=("[UNK]", "[SEP]", "[PAD]", "[CLS]", "[MASK]"),
+    ):
         """Constructs a BasicTokenizer.
 
         Args:
@@ -238,14 +259,16 @@ class BasicTokenizer(object):
         # as is Japanese Hiragana and Katakana. Those alphabets are used to write
         # space-separated words, so they are not treated specially and handled
         # like the all of the other languages.
-        if ((cp >= 0x4E00 and cp <= 0x9FFF) or  #
-                (cp >= 0x3400 and cp <= 0x4DBF) or  #
-                (cp >= 0x20000 and cp <= 0x2A6DF) or  #
-                (cp >= 0x2A700 and cp <= 0x2B73F) or  #
-                (cp >= 0x2B740 and cp <= 0x2B81F) or  #
-                (cp >= 0x2B820 and cp <= 0x2CEAF) or
-                (cp >= 0xF900 and cp <= 0xFAFF) or  #
-                (cp >= 0x2F800 and cp <= 0x2FA1F)):  #
+        if (
+            (cp >= 0x4E00 and cp <= 0x9FFF)
+            or (cp >= 0x3400 and cp <= 0x4DBF)  #
+            or (cp >= 0x20000 and cp <= 0x2A6DF)  #
+            or (cp >= 0x2A700 and cp <= 0x2B73F)  #
+            or (cp >= 0x2B740 and cp <= 0x2B81F)  #
+            or (cp >= 0x2B820 and cp <= 0x2CEAF)  #
+            or (cp >= 0xF900 and cp <= 0xFAFF)
+            or (cp >= 0x2F800 and cp <= 0x2FA1F)  #
+        ):  #
             return True
 
         return False
@@ -255,7 +278,7 @@ class BasicTokenizer(object):
         output = []
         for char in text:
             cp = ord(char)
-            if cp == 0 or cp == 0xfffd or _is_control(char):
+            if cp == 0 or cp == 0xFFFD or _is_control(char):
                 continue
             if _is_whitespace(char):
                 output.append(" ")
@@ -355,8 +378,12 @@ def _is_punctuation(char):
     # Characters such as "^", "$", and "`" are not in the Unicode
     # Punctuation class but we treat them as punctuation anyways, for
     # consistency.
-    if ((cp >= 33 and cp <= 47) or (cp >= 58 and cp <= 64) or
-            (cp >= 91 and cp <= 96) or (cp >= 123 and cp <= 126)):
+    if (
+        (cp >= 33 and cp <= 47)
+        or (cp >= 58 and cp <= 64)
+        or (cp >= 91 and cp <= 96)
+        or (cp >= 123 and cp <= 126)
+    ):
         return True
     cat = unicodedata.category(char)
     if cat.startswith("P"):

@@ -1,12 +1,13 @@
+import math
+import pdb
+
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
 import torch
 import torch.nn as nn
-import pdb
-import matplotlib.pyplot as plt
-import seaborn as sns
-import math
-from torch.nn import Parameter
 import torch.nn.functional as F
-import numpy as np
+from torch.nn import Parameter
 
 
 class BinaryQuantizer(torch.autograd.Function):
@@ -30,7 +31,7 @@ class ZMeanBinaryQuantizer(torch.autograd.Function):
     def forward(ctx, input):
         ctx.save_for_backward(input)
         out = torch.sign(input)
-        out[out==-1] = 0
+        out[out == -1] = 0
         return out
 
     @staticmethod
@@ -44,8 +45,9 @@ class ZMeanBinaryQuantizer(torch.autograd.Function):
 
 class SymQuantizer(torch.autograd.Function):
     """
-        uniform quantization
+    uniform quantization
     """
+
     @staticmethod
     def forward(ctx, input, clip_val, num_bits, layerwise, type=None):
         """
@@ -62,10 +64,19 @@ class SymQuantizer(torch.autograd.Function):
             max_input = torch.max(torch.abs(input)).expand_as(input)
         else:
             if input.ndimension() <= 3:
-                max_input = torch.max(torch.abs(input), dim=-1, keepdim=True)[0].expand_as(input).detach()
+                max_input = (
+                    torch.max(torch.abs(input), dim=-1, keepdim=True)[0]
+                    .expand_as(input)
+                    .detach()
+                )
             elif input.ndimension() == 4:
                 tmp = input.view(input.shape[0], input.shape[1], -1)
-                max_input = torch.max(torch.abs(tmp), dim=-1, keepdim=True)[0].unsqueeze(-1).expand_as(input).detach()
+                max_input = (
+                    torch.max(torch.abs(tmp), dim=-1, keepdim=True)[0]
+                    .unsqueeze(-1)
+                    .expand_as(input)
+                    .detach()
+                )
             else:
                 raise ValueError
         s = (2 ** (num_bits - 1) - 1) / max_input
@@ -89,8 +100,9 @@ class SymQuantizer(torch.autograd.Function):
 
 class AsymQuantizer(torch.autograd.Function):
     """
-        min-max quantization
+    min-max quantization
     """
+
     @staticmethod
     def forward(ctx, input, clip_val, num_bits, layerwise, type=None):
         """
@@ -108,17 +120,35 @@ class AsymQuantizer(torch.autograd.Function):
             beta = input.min().detach()
         else:
             if input.ndimension() <= 3:
-                alpha = (input.max(dim=-1, keepdim=True)[0] - input.min(dim=-1, keepdim=True)[0]).expand_as(input).detach()
+                alpha = (
+                    (
+                        input.max(dim=-1, keepdim=True)[0]
+                        - input.min(dim=-1, keepdim=True)[0]
+                    )
+                    .expand_as(input)
+                    .detach()
+                )
                 beta = input.min(dim=-1, keepdim=True)[0].expand_as(input).detach()
             elif input.ndimension() == 4:
                 tmp = input.view(input.shape[0], input.shape[1], -1)
-                alpha = (tmp.max(dim=-1, keepdim=True)[0].unsqueeze(-1) - \
-                            tmp.min(dim=-1, keepdim=True)[0].unsqueeze(-1)).expand_as(input).detach()
-                beta = tmp.min(dim=-1, keepdim=True)[0].unsqueeze(-1).expand_as(input).detach()
+                alpha = (
+                    (
+                        tmp.max(dim=-1, keepdim=True)[0].unsqueeze(-1)
+                        - tmp.min(dim=-1, keepdim=True)[0].unsqueeze(-1)
+                    )
+                    .expand_as(input)
+                    .detach()
+                )
+                beta = (
+                    tmp.min(dim=-1, keepdim=True)[0]
+                    .unsqueeze(-1)
+                    .expand_as(input)
+                    .detach()
+                )
             else:
                 raise ValueError
         input_normalized = (input - beta) / (alpha + 1e-8)
-        s = (2**num_bits - 1)
+        s = 2 ** num_bits - 1
         quant_input = torch.round(input_normalized * s).div(s)
         output = quant_input * (alpha + 1e-8) + beta
 
@@ -142,6 +172,7 @@ class TwnQuantizer(torch.autograd.Function):
     """Ternary Weight Networks (TWN)
     Ref: https://arxiv.org/abs/1605.04711
     """
+
     @staticmethod
     def forward(ctx, input, clip_val, num_bits, layerwise, type=None):
         """
@@ -159,7 +190,7 @@ class TwnQuantizer(torch.autograd.Function):
             mask = (input.abs() > thres).float()
             alpha = (mask * input).abs().sum() / mask.sum()
             result = alpha * pos - alpha * neg
-        else: # row-wise only for embed / weight
+        else:  # row-wise only for embed / weight
             n = input[0].nelement()
             m = input.data.norm(p=1, dim=1).div(n)
             thres = (0.7 * m).view(-1, 1).expand_as(input)
@@ -186,8 +217,8 @@ class TwnQuantizer(torch.autograd.Function):
 
 
 class QuantizeLinear(nn.Linear):
-    def __init__(self,  *kargs,bias=True, config=None, type=None):
-        super(QuantizeLinear, self).__init__(*kargs,bias=True)
+    def __init__(self, *kargs, bias=True, config=None, type=None):
+        super(QuantizeLinear, self).__init__(*kargs, bias=True)
         self.quantize_act = config.quantize_act
         self.weight_bits = config.weight_bits
         self.quantize_act = config.quantize_act
@@ -197,9 +228,11 @@ class QuantizeLinear(nn.Linear):
             self.weight_quantizer = BinaryQuantizer
         else:
             self.weight_quantizer = SymQuantizer
-        self.register_buffer('weight_clip_val', torch.tensor([-config.clip_val, config.clip_val]))
+        self.register_buffer(
+            "weight_clip_val", torch.tensor([-config.clip_val, config.clip_val])
+        )
         self.init = True
-            
+
         if self.quantize_act:
             self.input_bits = config.input_bits
             if self.input_bits == 1:
@@ -208,13 +241,17 @@ class QuantizeLinear(nn.Linear):
                 self.act_quantizer = TwnQuantizer
             else:
                 self.act_quantizer = SymQuantizer
-            self.register_buffer('act_clip_val', torch.tensor([-config.clip_val, config.clip_val]))
-        self.register_parameter('scale', Parameter(torch.Tensor([0.0]).squeeze()))
- 
+            self.register_buffer(
+                "act_clip_val", torch.tensor([-config.clip_val, config.clip_val])
+            )
+        self.register_parameter("scale", Parameter(torch.Tensor([0.0]).squeeze()))
+
     def reset_scale(self, input):
         bw = self.weight
         ba = input
-        self.scale = Parameter((ba.norm() / torch.sign(ba).norm()).float().to(ba.device))
+        self.scale = Parameter(
+            (ba.norm() / torch.sign(ba).norm()).float().to(ba.device)
+        )
 
     def forward(self, input, type=None):
         if self.weight_bits == 1:
@@ -223,28 +260,36 @@ class QuantizeLinear(nn.Linear):
             real_weights = self.weight - torch.mean(self.weight, dim=-1, keepdim=True)
             binary_weights_no_grad = scaling_factor * torch.sign(real_weights)
             cliped_weights = torch.clamp(real_weights, -1.0, 1.0)
-            weight = binary_weights_no_grad.detach() - cliped_weights.detach() + cliped_weights
+            weight = (
+                binary_weights_no_grad.detach()
+                - cliped_weights.detach()
+                + cliped_weights
+            )
         else:
-            weight = self.weight_quantizer.apply(self.weight, self.weight_clip_val, self.weight_bits, True)
+            weight = self.weight_quantizer.apply(
+                self.weight, self.weight_clip_val, self.weight_bits, True
+            )
 
         if self.input_bits == 1:
             binary_input_no_grad = torch.sign(input)
             cliped_input = torch.clamp(input, -1.0, 1.0)
             ba = binary_input_no_grad.detach() - cliped_input.detach() + cliped_input
         else:
-            ba = self.act_quantizer.apply(input, self.act_clip_val, self.input_bits, True)
-        
+            ba = self.act_quantizer.apply(
+                input, self.act_clip_val, self.input_bits, True
+            )
+
         out = nn.functional.linear(ba, weight)
-        
+
         if not self.bias is None:
-            out += self.bias.view(1, -1).expand_as(out) 
+            out += self.bias.view(1, -1).expand_as(out)
 
         return out
 
 
 class QuantizeEmbedding(nn.Embedding):
-    def __init__(self,  *kargs,padding_idx=None, config=None, type=None):
-        super(QuantizeEmbedding, self).__init__(*kargs, padding_idx = padding_idx)
+    def __init__(self, *kargs, padding_idx=None, config=None, type=None):
+        super(QuantizeEmbedding, self).__init__(*kargs, padding_idx=padding_idx)
         self.weight_bits = config.weight_bits
         self.layerwise = False
         if self.weight_bits == 2:
@@ -254,7 +299,9 @@ class QuantizeEmbedding(nn.Embedding):
         else:
             self.weight_quantizer = SymQuantizer
         self.init = True
-        self.register_buffer('weight_clip_val', torch.tensor([-config.clip_val, config.clip_val]))
+        self.register_buffer(
+            "weight_clip_val", torch.tensor([-config.clip_val, config.clip_val])
+        )
 
     def forward(self, input, type=None):
         if self.weight_bits == 1:
@@ -263,10 +310,22 @@ class QuantizeEmbedding(nn.Embedding):
             real_weights = self.weight - torch.mean(self.weight, dim=-1, keepdim=True)
             binary_weights_no_grad = scaling_factor * torch.sign(real_weights)
             cliped_weights = torch.clamp(real_weights, -1.0, 1.0)
-            weight = binary_weights_no_grad.detach() - cliped_weights.detach() + cliped_weights
+            weight = (
+                binary_weights_no_grad.detach()
+                - cliped_weights.detach()
+                + cliped_weights
+            )
         else:
-            weight = self.weight_quantizer.apply(self.weight, self.weight_clip_val, self.weight_bits, self.layerwise)
+            weight = self.weight_quantizer.apply(
+                self.weight, self.weight_clip_val, self.weight_bits, self.layerwise
+            )
         out = nn.functional.embedding(
-            input, weight, self.padding_idx, self.max_norm,
-            self.norm_type, self.scale_grad_by_freq, self.sparse)
+            input,
+            weight,
+            self.padding_idx,
+            self.max_norm,
+            self.norm_type,
+            self.scale_grad_by_freq,
+            self.sparse,
+        )
         return out
