@@ -190,7 +190,7 @@ class BertSelfAttention(nn.Module):
             True,
         )
 
-        mask = attention_mask
+        mask = torch.where(attention_mask < -1, 0.0, 1.0).bool().to(attention_mask.device)
         # mask = torch.ones_like(latent_data.mask).to(latent_data.mask.device)
         attention_probs = AttnProbBias.apply(attention_probs, self.move_attn_probs, mask)
 
