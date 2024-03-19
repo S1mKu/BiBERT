@@ -2,7 +2,7 @@ FT_BERT_BASE_DIR="../data/checkpoints/bibert/fp/dynabert/MRPC"
 GENERAL_TINYBERT_DIR="../data/checkpoints/bibert/fp/dynabert/MRPC"
 
 TASK_DIR="../data/datasets/glue"
-TASK_NAME="mrpc"
+TASK_NAME="MRPC"
 
 OUTPUT_DIR="./results/biBERT/mrpc/"
 LOGFILE_DIR="./results/biBERT/logs/"
