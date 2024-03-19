@@ -10,6 +10,137 @@ import torch.nn.functional as F
 from torch.nn import Parameter
 
 
+class AlphaInit(nn.Parameter):
+    def __init__(self, tensor):
+        super(AlphaInit, self).__new__(nn.Parameter, data=tensor)
+        self.initialized = False
+
+    def _initialize(self, init_tensor):
+        assert not self.initialized, "already initialized."
+        self.data.copy_(init_tensor)
+        self.initialized = True
+
+    def initialize_wrapper(self, tensor, num_bits, symmetric, init_method="default"):
+        Qp = 2 ** (num_bits - 1) - 1 if symmetric else 2 ** (num_bits) - 1
+        if Qp == 0:
+            Qp = 1.0
+        if init_method == "default":
+            init_val = (
+                2 * tensor.abs().mean() / math.sqrt(Qp)
+                if symmetric
+                else 4 * tensor.abs().mean() / math.sqrt(Qp)
+            )
+        elif init_method == "uniform":
+            init_val = 1.0 / (2 * Qp + 1) if symmetric else 1.0 / Qp
+
+        self._initialize(init_val)
+
+
+class ElasticQuantBinarizerUnsignedSoftmaxUnclipped(torch.autograd.Function):
+    """
+    Modified from Learned Step-size Quantization.
+    https://arxiv.org/abs/1902.08153
+    """
+
+    @staticmethod
+    def forward(ctx, input, alpha, num_bits, layerwise):
+        """
+        :param input: input to be quantized
+        :param alpha: the step size
+        :param num_bits: quantization bits
+        :param layerwise: rowwise quant
+        :return: quantized output
+        """
+        if not layerwise:
+            # TODO
+            raise NotImplementedError
+        ctx.num_bits = num_bits
+        if num_bits == 32:
+            return input
+
+        Qn = 0
+        Qp = 2 ** (num_bits) - 1
+        if num_bits == 1:
+            input_ = input
+        else:
+            min_val = input.min().item()
+            input_ = input - min_val
+
+        eps = torch.tensor(0.00001).float().to(alpha.device)
+        if alpha.item() == 1.0 and (not alpha.initialized):
+            alpha.initialize_wrapper(
+                input, num_bits, symmetric=False, init_method="default"
+            )
+        alpha = torch.where(alpha > eps, alpha, eps)
+        assert alpha > 0, "alpha = {:.6f} becomes non-positive".format(alpha)
+
+        grad_scale = 1.0 / math.sqrt(input.numel() * Qp)
+        ctx.save_for_backward(input_, alpha)
+        ctx.other = grad_scale, Qn, Qp
+        q_w = (input_ / alpha).round().clamp(Qn, Qp)
+        w_q = q_w * alpha
+        if num_bits != 1:
+            w_q = w_q + min_val
+        return w_q
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        if ctx.num_bits == 32:
+            return grad_output, None, None, None
+
+        input_, alpha = ctx.saved_tensors
+        grad_scale, Qn, Qp = ctx.other
+
+        # norm to [0, 1 / alpha] since we try to minimize ||W_real - alpha * W_bin||
+        q_w = input_ / alpha
+
+        indicate_small = (q_w < Qn).float()
+        indicate_big = (q_w > Qp).float()
+        indicate_middle = (
+            1.0 - indicate_small - indicate_big
+        )  # this is more cpu-friendly than torch.ones(input_.shape)
+        grad_alpha = (
+            (
+                (
+                    indicate_small * Qn
+                    + indicate_big * Qp
+                    + indicate_middle * (-q_w + q_w.round())
+                )
+                * grad_output
+                * grad_scale
+            )
+            .sum()
+            .unsqueeze(dim=0)
+        )
+        # grad_input = indicate_middle * grad_output
+        grad_input = grad_output.clone()
+        return grad_input, grad_alpha, None, None
+
+
+class AttnProbBias(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input, bias, mask):
+        ctx.other = mask, bias
+        bias = bias.expand_as(input) * mask
+        output = input + bias
+        offset = torch.tensor(0.000_1).float().to(input.device)
+        # offset = torch.tensor(0.001).float().to(input.device)
+        output = torch.where(output < offset, offset, output)
+        return output
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        grad_input = grad_output.clone()
+        mask, bias = ctx.other
+        grad_bias = torch.sum(grad_output * mask).unsqueeze(0)
+        # grad_bias = torch.sum(grad_output).unsqueeze(0)
+
+        if bias < 0 and grad_bias > 0:
+            grad_bias = torch.tensor([0.0]).to(grad_output.device)
+
+        return grad_input, grad_bias, None
+    
+
 class BinaryQuantizer(torch.autograd.Function):
     @staticmethod
     def forward(ctx, input):

@@ -41,6 +41,9 @@ from .utils_quant import (
     QuantizeLinear,
     SymQuantizer,
     ZMeanBinaryQuantizer,
+    ElasticQuantBinarizerUnsignedSoftmaxUnclipped,
+    AttnProbBias,
+    AlphaInit,
 )
 
 logger = logging.getLogger(__name__)
@@ -140,6 +143,9 @@ class BertSelfAttention(nn.Module):
 
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
+        self.clip_attn = AlphaInit(torch.tensor(1.0))
+        self.move_attn_probs = nn.Parameter(torch.ones(1) * 0.001, requires_grad=True)
+
     def transpose_for_scores(self, x):
         new_x_shape = x.size()[:-1] + (
             self.num_attention_heads,
@@ -171,15 +177,32 @@ class BertSelfAttention(nn.Module):
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
         attention_scores = attention_scores + attention_mask
+
+        attention_probs = nn.Softmax(dim=-1)(attention_scores)
+
         attention_probs = self.dropout(attention_scores)
+
+        attention_probs = ElasticQuantBinarizerUnsignedSoftmaxUnclipped.apply(
+        # attention_probs = ElasticQuantBinarizerUnsigned.apply(
+            attention_probs,
+            self.clip_attn,
+            1,
+            True,
+        )
+
+        mask = attention_mask
+        # mask = torch.ones_like(latent_data.mask).to(latent_data.mask.device)
+        attention_probs = AttnProbBias.apply(attention_probs, self.move_attn_probs, mask)
 
         value_scores = torch.matmul(value_layer, value_layer.transpose(-1, -2))
         value_scores = value_scores / math.sqrt(self.attention_head_size)
 
-        if self.quantize_act:
-            if self.input_bits == 1:
-                attention_probs = ZMeanBinaryQuantizer.apply(attention_probs)
-                value_layer = self.act_quantizer.apply(value_layer)
+        # if self.quantize_act:
+        #     if self.input_bits == 1:
+        #         attention_probs = ZMeanBinaryQuantizer.apply(attention_probs)
+        #         value_layer = self.act_quantizer.apply(value_layer)
+
+        value_layer = self.act_quantizer.apply(value_layer)
 
         context_layer = torch.matmul(attention_probs, value_layer)
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
