@@ -214,7 +214,7 @@ def main():
     summaryWriter = SummaryWriter(args.output_dir)
     logger.info("The args: {}".format(args))
     task_name = args.task_name.lower()
-    data_dir = os.path.join(args.data_dir, task_name)
+    data_dir = os.path.join(args.data_dir, args.task_name)
     output_dir = os.path.join(args.output_dir, task_name)
 
     if not os.path.exists(output_dir):
