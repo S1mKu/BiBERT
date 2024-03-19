@@ -1,17 +1,18 @@
-FT_BERT_BASE_DIR="/pretrained_models/dynabert/QNLI"
-GENERAL_TINYBERT_DIR="/pretrained_models/dynabert/QNLI"
+FT_BERT_BASE_DIR="../data/checkpoints/bibert/fp/dynabert/QNLI"
+GENERAL_TINYBERT_DIR="../data/checkpoints/bibert/fp/dynabert/QNLI"
 
-TASK_DIR="/datasets/glue_data"
+TASK_DIR="../data/datasets/glue"
 TASK_NAME="qnli"
 
-OUTPUT_DIR="/results/biBERT/qnli/"
-LOGFILE_DIR="/results/biBERT/logs/"
+OUTPUT_DIR="./results/biBERT/qnli/"
+LOGFILE_DIR="./results/biBERT/logs/"
 
 LOG_FILENAME=$(date "+%Y-%m-%d-%H-%M-%S")
 
 log_filepath=$LOGFILE_DIR$LOG_FILENAME"-qnli.log"
 
 mkdir $OUTPUT_DIR
+SEED=42
 
 CUDA_VISIBLE_DEVICES=1  python quant_task_glue.py \
             --data_dir $TASK_DIR \

@@ -1,23 +1,24 @@
-FT_BERT_BASE_DIR="/pretrained_models/dynabert/STS-B"
-GENERAL_TINYBERT_DIR="/pretrained_models/dynabert/STS-B"
+FT_BERT_BASE_DIR="../data/checkpoints/bibert/fp/dynabert/STS-B"
+GENERAL_TINYBERT_DIR="../data/checkpoints/bibert/fp/dynabert/STS-B"
 
-TASK_DIR="/datasets/glue_data"
+TASK_DIR="../data/datasets/glue"
 TASK_NAME="sts-b"
 
-OUTPUT_DIR="/results/BiBERT/sts-b/"
-LOGFILE_DIR="/results/BiBERT/logs/"
+OUTPUT_DIR="./results/biBERT/sts-b/"
+LOGFILE_DIR="./results/biBERT/logs/"
 
 LOG_FILENAME=$(date "+%Y-%m-%d-%H-%M-%S")
 
 mkdir $OUTPUT_DIR
+SEED=42
 
-CUDA_VISIBLE_DEVICES=0  python quant_task_glue.py \
+CUDA_VISIBLE_DEVICES=0 python3 quant_task_glue.py \
             --data_dir $TASK_DIR \
             --teacher_model $FT_BERT_BASE_DIR \
             --student_model $GENERAL_TINYBERT_DIR \
             --task_name $TASK_NAME \
             --output_dir $OUTPUT_DIR \
-            --seed 42 \
+            --seed $SEED \
             --learning_rate 1e-4 \
             --weight_bits 1 \
             --embedding_bits 1 \

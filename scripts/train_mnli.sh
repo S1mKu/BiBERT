@@ -1,15 +1,16 @@
-FT_BERT_BASE_DIR="/pretrained_models/dynabert/MNLI"
-GENERAL_TINYBERT_DIR="/pretrained_models/dynabert/MNLI"
+FT_BERT_BASE_DIR="../data/checkpoints/bibert/fp/dynabert/MNLI"
+GENERAL_TINYBERT_DIR="../data/checkpoints/bibert/fp/dynabert/MNLI"
 
-TASK_DIR="/datasets/glue_data"
+TASK_DIR="../data/datasets/glue"
 TASK_NAME="mnli"
 
-OUTPUT_DIR="/results/bibert/mnli/"
-LOGFILE_DIR="/results/bibert/logs/"
+OUTPUT_DIR="./results/biBERT/mnli/"
+LOGFILE_DIR="./results/biBERT/logs/"
 
 LOG_FILENAME=$(date "+%Y-%m-%d-%H-%M-%S")
 
 mkdir $OUTPUT_DIR
+SEED=42
 
 CUDA_VISIBLE_DEVICES=1  python quant_task_glue.py \
             --data_dir $TASK_DIR \
@@ -17,7 +18,7 @@ CUDA_VISIBLE_DEVICES=1  python quant_task_glue.py \
             --student_model $GENERAL_TINYBERT_DIR \
             --task_name $TASK_NAME \
             --output_dir $OUTPUT_DIR \
-            --seed 42 \
+            --seed $SEED \
             --learning_rate 5e-5 \
             --weight_bits 1 \
             --embedding_bits 1 \
