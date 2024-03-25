@@ -8,6 +8,7 @@ import pdb
 import pickle
 import random
 import sys
+import neptune
 
 import numpy as np
 import torch
@@ -38,6 +39,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 cnt_epoch = -1
+
+if "NEPTUNE_API_TOKEN" not in os.environ:
+    print("Neptune API token not found")
+    os.environ["NEPTUNE_API_TOKEN"] = input("Enter your neptune API token: ")
+
+neptune_api_token = os.environ.get("NEPTUNE_API_TOKEN")
+
+# eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI2Yjc2NDE4OC1hNGUxLTRhMjUtYjc0Ny00ZjFkZDE0ZTM0YzkifQ==
+
+neptune_logger = neptune.init_run(
+    api_token=neptune_api_token,
+    project="tu-do-sk/BiBERT",  # format "workspace-name/project-name"
+)
 
 
 def get_tensor_data(output_mode, features):
@@ -329,6 +343,11 @@ def main():
     output_mode = output_modes[task_name]
     label_list = processor.get_labels()
     num_labels = len(label_list)
+
+    # log params to neptune AFTER initialization with defaults (s. before)
+    neptune_logger["task"] = args.task_name
+    neptune_logger["lr"] = args.learning_rate
+    neptune_logger["bs"] = args.batch_size
 
     tokenizer = BertTokenizer.from_pretrained(args.student_model, do_lower_case=True)
 
@@ -699,6 +718,15 @@ def main():
                         eval_labels,
                         num_labels,
                     )
+
+                    # log metrics to neptune
+                    neptune_logger["eval/cls-loss"].log(cls_loss, step=global_step)
+                    neptune_logger["eval/value_loss"].log(value_loss, step=global_step)
+                    neptune_logger["eval/query_loss"].log(query_loss, step=global_step)
+                    neptune_logger["eval/key_loss"].log(key_loss, step=global_step)
+                    neptune_logger["eval/rep_loss"].log(rep_loss, step=global_step)
+                    neptune_logger["eval/loss"].log(loss, step=global_step)
+
                     result["global_step"] = global_step
                     result["cls_loss"] = cls_loss
                     result["value_loss"] = value_loss
@@ -725,6 +753,7 @@ def main():
 
                     if task_name == "cola":
                         summaryWriter.add_scalar("mcc", result["mcc"], global_step)
+                        neptune_logger["eval/acc"].log(result["mcc"], step=global_step)
                     elif task_name in [
                         "sst-2",
                         "mnli",
@@ -733,7 +762,8 @@ def main():
                         "rte",
                         "wnli",
                     ]:
-                        summaryWriter.add_scalar("acc", result["acc"], global_step)
+                        summaryWriter.add_scalar("acc", result["acc"], step=global_step)
+                        neptune_logger["eval/acc"].log(result["acc"], step=global_step)
                     elif task_name in ["mrpc", "qqp"]:
                         summaryWriter.add_scalars(
                             "performance",
@@ -744,8 +774,10 @@ def main():
                             },
                             global_step,
                         )
+                        neptune_logger["eval/acc"].log(result["acc"], step=global_step)
                     else:
                         summaryWriter.add_scalar("corr", result["corr"], global_step)
+                        neptune_logger["eval/acc"].log(result["corr"], step=global_step)
 
                     save_model = False
 
