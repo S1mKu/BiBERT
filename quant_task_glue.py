@@ -762,7 +762,7 @@ def main():
                         "rte",
                         "wnli",
                     ]:
-                        summaryWriter.add_scalar("acc", result["acc"], step=global_step)
+                        summaryWriter.add_scalar("acc", result["acc"], global_step)
                         neptune_logger["eval/acc"].log(result["acc"], step=global_step)
                     elif task_name in ["mrpc", "qqp"]:
                         summaryWriter.add_scalars(
