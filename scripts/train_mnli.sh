@@ -2,7 +2,7 @@ FT_BERT_BASE_DIR="../data/checkpoints/bibert/fp/dynabert/MNLI"
 GENERAL_TINYBERT_DIR="../data/checkpoints/bibert/fp/dynabert/MNLI"
 
 TASK_DIR="../data/datasets/glue"
-TASK_NAME="mnli"
+TASK_NAME="MNLI"
 
 OUTPUT_DIR="./results/biBERT/mnli/"
 LOGFILE_DIR="./results/biBERT/logs/"

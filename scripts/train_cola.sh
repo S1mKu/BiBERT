@@ -2,7 +2,7 @@ FT_BERT_BASE_DIR="../data/checkpoints/bibert/fp/dynabert/CoLA"
 GENERAL_TINYBERT_DIR="../data/checkpoints/bibert/fp/dynabert/CoLA"
 
 TASK_DIR="../data/datasets/glue"
-TASK_NAME="cola"
+TASK_NAME="CoLA"
 
 OUTPUT_DIR="./results/biBERT/cola/"
 LOGFILE_DIR="./results/biBERT/logs/"

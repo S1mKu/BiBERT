@@ -2,7 +2,7 @@ FT_BERT_BASE_DIR="../data/checkpoints/bibert/fp/dynabert/QNLI"
 GENERAL_TINYBERT_DIR="../data/checkpoints/bibert/fp/dynabert/QNLI"
 
 TASK_DIR="../data/datasets/glue"
-TASK_NAME="qnli"
+TASK_NAME="QNLI"
 
 OUTPUT_DIR="./results/biBERT/qnli/"
 LOGFILE_DIR="./results/biBERT/logs/"
