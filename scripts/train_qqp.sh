@@ -2,7 +2,7 @@ FT_BERT_BASE_DIR="../data/checkpoints/bibert/fp/dynabert/QQP"
 GENERAL_TINYBERT_DIR="../data/checkpoints/bibert/fp/dynabert/QQP"
 
 TASK_DIR="../data/datasets/glue"
-TASK_NAME="qqp"
+TASK_NAME="QQP"
 
 OUTPUT_DIR="./results/biBERT/qqp/"
 LOGFILE_DIR="./results/biBERT/logs/"

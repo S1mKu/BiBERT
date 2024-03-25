@@ -26,7 +26,7 @@ CUDA_VISIBLE_DEVICES=0 python3 quant_task_glue.py \
             --batch_size 16 \
             --pred_distill \
             --intermediate_distill \
-            --value_distill \
-            --key_distill \
-            --query_distill \
+            # --value_distill \
+            # --key_distill \
+            # --query_distill \
             --save_fp_model

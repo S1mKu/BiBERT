@@ -2,7 +2,7 @@ FT_BERT_BASE_DIR="../data/checkpoints/bibert/fp/dynabert/SST-2"
 GENERAL_TINYBERT_DIR="../data/checkpoints/bibert/fp/dynabert/SST-2"
 
 TASK_DIR="../data/datasets/glue"
-TASK_NAME="sst-2"
+TASK_NAME="SST-2"
 
 OUTPUT_DIR="./results/biBERT/sst-2/output_dir"
 LOGFILE_DIR="./results/biBERT/logs/"
